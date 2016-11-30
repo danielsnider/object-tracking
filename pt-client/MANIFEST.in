@@ -1,0 +1,10 @@
+include AUTHORS
+include ChangeLog
+include LICENSE
+include README.md
+
+exclude .gitignore
+exclude Gruntfile.js
+exclude package.json
+
+global-exclude *.pyc

@@ -1,0 +1,13 @@
+# The order of packages is significant, because pip processes them in the order
+# of appearance. Changing the order has an impact on the overall integration
+# process, which may cause wedges in the gate later.
+
+
+pbr>=0.6,!=0.7,<1.0
+
+tornado >= 4.1
+
+# should be pulled in as dep of cvutils but it's not working
+numpy >= 1.8.2
+
+cvutils >= 0.0.0

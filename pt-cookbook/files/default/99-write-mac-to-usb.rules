@@ -1,0 +1,1 @@
+KERNEL=="sd*", SUBSYSTEMS=="block", ENV{ID_VENDOR}=="Kingston", ACTION=="add", RUN+="/home/dan/pt/pt-cookbook/files/default/save_mac.sh -l /opt/pt/log/save_mac.log"

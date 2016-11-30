@@ -1,0 +1,13 @@
+*.pyc
+*.swp
+*.pid
+*.deb
+.sublime*
+env
+node_modules
+build
+AUTHORS
+ChangeLog
+*.log
+*.egg-info/
+*.egg

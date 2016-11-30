@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=320, initial-scale=1"/>
+    <title>jsmpeg streaming</title>
+    <!-- <link rel="stylesheet" type="text/css" href="font-awesome.min.css"> -->
+    <link rel="stylesheet" href="http://maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css">
+    <style type="text/css">
+        body {
+            background: #333;
+            text-align: center;
+            /*margin-top: 1%;*/
+        }
+        #videoCanvas {
+            /* Always stretch the canvas to 1336, regardless of its
+            internal size. */
+            width: 1750px;
+            height: 1312px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="videoCanvas" width="1782" height="1336">
+        <p>Please use a browser that supports the Canvas Element.</p>
+    </canvas>
+    <script type="text/javascript" src="underscore.js"></script>
+    <script type="text/javascript" src="moment.min.js"></script>
+    <script type="text/javascript">
+        // Global Variables
+        var canvas = document.getElementById('videoCanvas');
+        var ctx = canvas.getContext('2d');
+        var ptserver = new WebSocket( 'ws://localhost:8888/zone/video/1' );
+        var zones = [];
+        var blue_points = 744;
+        var red_points = 744;
+        var global_latency = 0;
+
+
+        ptserver.onopen = function() {
+            console.log("opened WebSocket");
+        }
+
+        ptserver.onmessage = function( event ) {
+            var data = JSON.parse(event.data);
+            var now = _.now();
+            var then = data.time;
+            latency = now - (then * 1000);
+            if (latency > 200) {
+                // console.log("dropped frame");
+                return;
+            }
+            frame = new Image();
+            frame.metadata = {};
+            frame.metadata.time = data.time;
+            frame.metadata.latency = latency;
+            frame.metadata.frame_id = data.frame_id;
+            frame.metadata.frame_id = data.frame_id;
+            frame.metadata.frame_width = data.frame_width;
+            frame.metadata.frame_height = data.frame_height;
+            frame.metadata.zone_id = data.zone_id;
+            frame.metadata.zone_x = data.zone_x;
+            frame.metadata.zone_y = data.zone_y;
+            frame.metadata.players = data.players;
+            // frame.onload = drawEverything;
+            frame.onload = function () {
+                // this is the frame Image object
+                updateZoneList(this); // must be first
+                this.metadata.translate = translateFrame(this.metadata.zone_x, this.metadata.zone_y);
+                drawFrame(this);
+                drawZoneId(this);
+                drawNullZones();
+                drawPlayers(this);
+                drawDeadZones();
+                drawLatency(this);
+                drawPoints();
+                drawHill();
+                // repoDeadZones(); // not yet implemented
+            };
+            frame.src = data.frame;
+        }
+
+        // function drawEverything () {
+        // }
+
+        function updateZoneList (frame) {
+            var zone_exists = _.findWhere(zones, {id: frame.metadata.zone_id});
+            if (zone_exists){
+                zone_exists.time = frame.metadata.time;
+                zone_exists.dead = false;
+                return;
+            }
+            new_zone = {
+                id: frame.metadata.zone_id,
+                time: frame.metadata.time,
+                x: frame.metadata.zone_x,
+                y: frame.metadata.zone_y,
+                dead: false
+            };
+            zones.push(new_zone);
+        }
+
+        function drawNullZones(){
+            var max_x = _.max(zones, function(zone){ return zone.x; }).x;
+            var max_y = _.max(zones, function(zone){ return zone.y; }).y;
+            var max_zone_dimension = Math.max(max_x, max_x);
+            for (x = 0; x <= max_zone_dimension; x++) {
+              for (y = 0; y <= max_zone_dimension; y++) {
+                var zone_exists = _.findWhere(zones, {x: x, y: y});
+                if (!zone_exists) {
+                    drawNullZone(x,y);
+                }
+              }
+            }
+        }
+
+        function drawNullZone (x, y) {
+            var translate = translateFrame(x, y);
+            var x = translate.x_offset;
+            var y = translate.y_offset;
+            var width = translate.width;
+            var height = translate.height;
+            var centerX = x + (width / 2);
+            var centerY = y + (height / 2);
+
+            // Draw black box
+            ctx.fillStyle = 'black';
+            ctx.fillRect(x, y, width, height);
+
+            // // Draw icon
+            ctx.textAlign = "center";
+            ctx.textBaseline="middle";
+            ctx.fillStyle = "white";
+            ctx.font  = '70px FontAwesome';
+            // List of font-awesome CharCodes
+            // http://astronautweb.co/snippet/font-awesome/
+            ctx.fillText("\uf05c", centerX, centerY - 20);
+            ctx.font = "18px Arial";
+            ctx.fillText("No stream available", centerX, centerY + 40);
+        }
+
+        function drawDeadZones () {
+            var now = moment().unix();
+            var dead_zones = _.filter(zones, function(zone){ return now > zone.time + 2; });
+            for (var i = 0; i < dead_zones.length; i++) {
+                if (dead_zones[i].dead) {
+                    return;
+                }
+                dead_zones[i].dead = true;
+                var dead_zone = dead_zones[i];
+                var translate = translateFrame(dead_zone.x, dead_zone.y);
+                var x = translate.x_offset;
+                var y = translate.y_offset;
+                var width = translate.width;
+                var height = translate.height;
+                var centerX = x + (width / 2);
+                var centerY = y + (height / 2);
+
+                // Write "Connection Lost!" message
+                ctx.textAlign = "center";
+                ctx.textBaseline="middle";
+                ctx.fillStyle = "white";
+                ctx.font = "18px Arial";
+                ctx.fillText("Connection Lost", centerX, centerY + 45);
+                ctx.font  = '67px FontAwesome';
+                ctx.fillText("\uf00d", centerX, centerY - 8 );
+            };
+        }
+
+        function drawFrame (frame) {
+            // updateZoneList(frame);
+            var x = frame.metadata.translate.x_offset;
+            var y = frame.metadata.translate.y_offset;
+            var width = frame.metadata.translate.width;
+            var height = frame.metadata.translate.height;
+            ctx.drawImage(frame, x, y, width, height);
+        }
+
+        function drawZoneId (frame) {
+            var centerX = frame.metadata.translate.x_offset + frame.metadata.translate.width - 20;
+            var centerY = frame.metadata.translate.y_offset + 20;
+            ctx.fillStyle = "white";
+            ctx.font = "10px Arial";
+            ctx.fillText(frame.metadata.zone_id, centerX, centerY);
+        }
+
+        function drawLatency (frame) {
+            if (parseInt(frame.metadata.frame_id) % 4 == 0) {
+                global_latency = frame.metadata.latency.toPrecision(3);
+            }
+            var y = 40;
+            var x = canvas.width-55;
+            ctx.fillStyle = "white";
+            ctx.font = "30px Arial";
+            ctx.fillText(global_latency+"ms", x, y);
+        }
+
+        function translateFrame (zone_x, zone_y) {
+            /**
+             * Scales and translates locations in a zone to fit in a collaged 
+             * scene.
+             * @param {Number} zone_x 
+             * @param {Number} zone_y
+             * @return {obeject} translate = {
+             *     x_offset: offset from true 0
+             *     y_offset: offset from true 0
+             *     width: of zone
+             *     height: of zone
+             *     scale: ratio to full canvas
+             * }
+             */
+            var x, y, width, height;
+            var max_x = _.max(zones, function(zone){ return zone.x; }).x;
+            var max_y = _.max(zones, function(zone){ return zone.y; }).y;
+            var max_zone_dimension = Math.max(max_x, max_x);
+            var scale = max_zone_dimension + 1;
+            width = 1782 / scale;
+            height = 1336 / scale;
+            x = zone_x * width;
+            y = zone_y * height;
+            var translate = {
+                scale: scale,
+                x_offset: x,
+                y_offset: y,
+                width: width,
+                height: height
+            };
+            return translate;
+        }
+
+        function drawPlayers (frame) {
+            _.each(frame.metadata.players, function (player) {
+                var centerX = (player.x / frame.metadata.translate.scale) + frame.metadata.translate.x_offset
+                var centerY = (player.y / frame.metadata.translate.scale) + frame.metadata.translate.y_offset
+                ctx.fillStyle = "white";
+                ctx.font = "16px Arial";
+                ctx.fillText(player.name, centerX, centerY + 25);
+                // Draw player icons
+                // ctx.fillStyle = "green";
+                ctx.font  = '30px FontAwesome';
+                if (frame.metadata.frame_id % 100 < 25) {
+                    // sad face
+                    ctx.fillText("\uf11a", centerX, centerY);
+                }
+                else if (frame.metadata.frame_id % 100 < 50) {
+                    // meh face
+                    ctx.fillText("\uf119", centerX, centerY);
+                }
+                else {
+                    // happy face
+                    ctx.fillText("\uf118", centerX, centerY);
+                }
+            });
+        }
+
+        function drawPoints () {
+            // inspiration
+            // https://www.facebook.com/BattlegroundsHQ/photos/pb.512596162149121.-2207520000.1427084164./773638926044842/?type=3&theater
+            var r1 = Math.floor((Math.random() * 100) + 1);
+            var r2 = Math.floor((Math.random() * 100) + 1);
+            var width = canvas.width;
+            var height = canvas.height;
+
+            if (r1 > 95) {
+                blue_points = blue_points + r1 -90;
+            }
+            if (r2 > 95) {
+                red_points = red_points + r2 - 90;
+            }
+
+            ctx.textBaseline="bottom";
+            ctx.fillStyle = "white";
+            ctx.font = "28px Arial";
+            ctx.textAlign = "left";
+            ctx.fillText("Blue Team: " + blue_points, 5, height - 5);
+            ctx.textAlign = "right";
+            ctx.fillText("Red Team: " + red_points, width -5 , height - 5);
+        }
+
+        function drawHill(){
+            ctx.textAlign = "center";
+            ctx.textBaseline="middle";
+            ctx.font  = '50px FontAwesome';
+            ctx.fillStyle='white';
+            ctx.fillText("\uf0c8", canvas.width/2, canvas.height-30);
+
+            if (blue_points > red_points) {
+                var mygradient = 'blue';
+            }
+            else{
+                var mygradient = 'red';
+            }
+            ctx.fillStyle=mygradient;
+            ctx.font  = '30px FontAwesome';
+            ctx.fillText("\uf024", canvas.width/2, canvas.height-30);
+        }
+
+
+
+    </script>
+</body>
+</html>

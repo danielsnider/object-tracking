@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=320, initial-scale=1"/>
+    <title>player map</title>
+    <link rel="stylesheet" href="lib/font-awesome.min.css">
+    <link rel="stylesheet" href="bootstrap.min.css">
+    <link rel="stylesheet" href="bootstrap-theme.min.css">
+    <script src="jquery-1.10.1.min.js"></script>
+    <script src="reconnecting-websocket.js"></script>
+    <style type="text/css">
+        body {
+            background: #333;
+            color: white;
+        }
+        #leftSideBar {
+            position: relative;
+        }
+        #videoCanvas {
+            /*width: 1920px;*/
+            /*height: 1080px;*/
+            /*widt/*h: 100%;*/
+            /*heigh*/t: 100%;*/
+            border-color: white;
+            /*border-color: #3C3C3C;*/
+            border-radius: 2px;
+            border-width: 1px;
+            border-style: solid;
+            /*padding: 4px;*/
+            z-index: 1;
+        }
+        body {
+/*            padding: 30px;
+*/        }
+        label {
+            font-weight: 400;
+        }
+        input[type=range] {
+            -webkit-appearance: none;
+            border-radius: 30px;
+            width: 90%;
+            height: 8px;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 90%;
+            height: 8px;
+            background: #ddd;
+            border: none;
+            border-radius: 30px;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            border: none;
+            height: 15px;
+            width: 15px;
+            border-radius: 50%;
+            background: goldenrod;
+            margin-top: -3px;
+        }
+        input[type=range]:focus {
+            outline: none;
+        }
+        input[type=range]:focus::-webkit-slider-runnable-track {
+            background: #ccc;
+        }
+
+        .pastarrow {
+            padding-left: 31px;
+        }
+
+        .cvOption {
+            width: 300px;
+            text-align: right;
+        }
+
+        input {
+            text-align: right;
+        }
+        .cvOptionLabel {
+            /*max-width: 30px;*/
+            /*min-width: 30px;*/
+            width: 200px;
+        }
+
+        div.my-group-addon {
+            width: 10px;
+        }
+
+        div {
+            z-index: 2147483647;
+        }
+        #fullscreen-button-box {
+            position: absolute;
+            display: inline-block;
+            padding: 10px;
+            right: 0;
+            background-color: #f4f4f4;
+            color: #333;
+            text-decoration: none;
+            text-transform: uppercase;
+            font-size: 0.85em;
+            letter-spacing: 0.125em;
+            box-shadow: -1px 1px 4px rgba(0,0,0,0.2);
+            border: 1px solid transparent;
+            border-radius: 3px;
+        }
+        #fullscreen-button-box:hover {
+            background-color: #6DCDFF;
+            color: #fff;
+            border-color: rgba(0,0,0,0.0);
+            text-shadow: 1px 1px 1px rgba(0,0,0,0.2);
+            text-decoration: none;
+        }
+
+        #options {
+            position: fixed;
+            top: 0;
+            left: 0;
+            margin: 15px;
+        }
+
+    </style>
+</head>
+<body>
+
+        <!-- <div class="col-md-6"> -->
+            <div id="main-pane">
+                <div id="fullscreen-button">
+                    <a href="#" id="fullscreen-button-box" title="Toggle Fullscreen"><i class="fa fa-expand"></i> Fullscreen</a>
+                </div>
+                <canvas id="videoCanvas" width="1920" height="1080">
+                    <p>Please use a browser that supports the Canvas Element.</p>
+                </canvas>
+                <div id="options">
+                    <div id="leftSideBar"class="row">
+                        <div class="col-md-4">
+                            <div id="streamTitle" class="row">
+                                <div class="col-md-6">
+                                    <span class="h3">
+                                        <i class="fa fa-camera"></i>
+                                        <span>Stream 1</span>
+                                    </span>
+                                </div>
+                                <div class="col-md-6">
+                                    <span class="h3">
+                                        <i class="fa fa-camera"></i>
+                                        <span>Stream 2</span>
+                                    </span>
+                                </div>
+                            </div>
+                            <div id="streamFader" class="row">
+                                <div class="col-md-12">
+                                    <div class="crossfader" style="margin-top:5px">
+                                            <input class="form-inline" type="range" min=0 max=100 value=75 id="fader" step=1 oninput="crossfadeUpdate(value)">
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="streamRadios" class="row">
+                                <div class="col-md-6">
+                                    <div class="radio">
+                                      <label>
+                                        <input type="radio" name="stream1radio" onclick="sendMessage('stream1', value)" value="original">
+                                        Original
+                                      </label>
+                                    </div>
+                                    <div class="radio">
+                                      <label>
+                                        <input type="radio" name="stream1radio" onclick="sendMessage('stream1', value)" value="bg_sub">
+                                        Background Subtraction
+                                      </label>
+                                    </div>
+                                    <div class="radio">
+                                      <label>
+                                        <input type="radio" name="stream1radio" onclick="sendMessage('stream1', value)" value="final" checked>
+                                        Final
+                                      </label>
+                                    </div>
+                                    <div class="form-group form-group-sm" style="width:150px">
+                                      <div class="input-group">
+                                        <div class="input-group-addon" style="width:10px">Quality</div>
+                                        <input type="text" class="form-control" id="stream1quality" value="25" onchange="sendMessage('stream1quality', value)">
+                                        <div class="input-group-addon" style="width:10px">%</div>
+                                      </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="radio">
+                                      <label>
+                                        <input type="radio" name="stream2radio" onclick="sendMessage('stream2', value)" value="original" checked>
+                                        Original
+                                      </label>
+                                    </div>
+                                    <div class="radio">
+                                      <label>
+                                        <input type="radio" name="stream2radio" onclick="sendMessage('stream2', value)" value="bg_sub">
+                                        Background Subtraction
+                                      </label>
+                                    </div>
+                                    <div class="radio">
+                                      <label>
+                                        <input type="radio" name="stream2radio" onclick="sendMessage('stream2', value)" value="final">
+                                        Final
+                                      </label>
+                                    </div>
+                                    <div class="form-group form-group-sm" style="width:150px">
+                                        <div class="input-group">
+                                            <div class="input-group-addon" style="width:10px">Quality</div>
+                                            <input type="text" class="form-control" id="stream2quality" value="90" onchange="sendMessage('stream2quality', value)">
+                                            <div class="input-group-addon" style="width:10px">%</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="OpenCVOptions" class="row">
+                                <form id="settings" class="form-inline" onsubmit="return saveSettings()">
+                                <input type="hidden" id="save_settings"> <!-- this "save_settings" id is passed to the backend and triggers the save operation -->
+                                <div class="col-md-12">
+                                    <div style="padding-bottom:10px; padding-top:10px;">
+                                        <span class="h3">
+                                            <i class="fa fa-gamepad"></i>
+                                            <span>Processing Pipeline</span>
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="col-md-12">
+                                    <div class="h4">Background Subtraction</div>
+                                    <i class="fa fa-long-arrow-down pull-left fa-3x"></i>
+                                    <!-- <i class="fa fa-long-arrow-down pull-left fa-3x" style="transform: scale(1,1.5);"></i> -->
+                                        <div class="form-group form-group-sm">
+                                            <div class="input-group cvOption">
+                                                <div class="input-group-addon" style="width:164px;">Threshold
+                                                </div>
+                                                <input type="text" class="form-control" value="16" onchange="sendMessage('bg_threshold', value)" id="bg_threshold">
+                                                <div class="input-group-addon" style="width:10px">
+                                                    <i class="fa fa-qrcode"></i>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <p></p>
+                                        <div class="form-group form-group-sm">
+                                            <div class="input-group cvOption">
+                                                <div class="input-group-addon" style="width:164px;">History
+                                                </div>
+                                                <input type="text" class="form-control" value="500" onchange="sendMessage('bg_history', value)" id="bg_history">
+                                                <div class="input-group-addon" style="width:10px">
+                                                    <i class="fa fa-qrcode"></i>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <!-- <p></p>
+                                        <div class="dropdown">
+                                          <button class="btn btn-default dropdown-toggle" type="button" id="dropdownMenu1" data-toggle="dropdown" aria-haspopup="true" aria-expanded="true">
+                                            Dropdown
+                                            <span class="caret"></span>
+                                          </button>
+                                          <ul class="dropdown-menu" aria-labelledby="dropdownMenu1">
+                                            <li><a href="#">Action</a></li>
+                                            <li><a href="#">Another action</a></li>
+                                            <li><a href="#">Something else here</a></li>
+                                            <li><a href="#">Separated link</a></li>
+                                          </ul>
+                                        </div> -->
+                                        <p></p>
+                                        <div class="form-group form-group-sm pastarrow">
+                                            <div class="input-group cvOption">
+                                                <div class="input-group-addon" style="width:164px;">Detect Shadows
+                                                </div>
+                                                <input type="text" class="form-control" value="False" onchange="sendMessage('bg_detectshadows', value)" id="bg_detectshadows">
+                                                <div class="input-group-addon" style="width:10px">
+                                                    <i class="fa fa-qrcode"></i>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    <div class="h4">Noise Reduction</div>
+                                    <i class="fa fa-long-arrow-down pull-left fa-3x"></i>
+                                            <div class="form-group form-group-sm">
+                                                <div class="input-group cvOption">
+                                                    <div class="input-group-addon" style="width:164px">Open Kernel
+                                                    </div>
+                                                    <input type="text" class="form-control" value="3,3" onchange="sendMessage('open_kernel', value)" id="open_kernel">
+                                                    <div class="input-group-addon" style="width:10px">
+                                                        <i class="fa fa-qrcode"></i>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <p></p>
+                                            <div class="form-group form-group-sm">
+                                                <div class="input-group cvOption">
+                                                    <div class="input-group-addon" style="width:164px">Open Iterations
+                                                    </div>
+                                                    <input type="text" class="form-control" value="2" onchange="sendMessage('open_iterations', value)" id="open_iterations">
+                                                    <div class="input-group-addon" style="width:10px">
+                                                        <i class="fa fa-qrcode"></i>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <p></p>
+                                            <div class="form-group form-group-sm pastarrow">
+                                                <div class="input-group cvOption">
+                                                    <div class="input-group-addon" style="width:164px">Erode Kernel
+                                                    </div>
+                                                    <input type="text" class="form-control" value="3,3" onchange="sendMessage('erode_kernel', value)" id="erode_kernel">
+                                                    <div class="input-group-addon" style="width:10px">
+                                                        <i class="fa fa-qrcode"></i>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <p></p>
+                                            <div class="form-group form-group-sm pastarrow">
+                                                <div class="input-group cvOption">
+                                                    <div class="input-group-addon" style="width:164px">Erode Iterations
+                                                    </div>
+                                                    <input type="text" class="form-control" value="2" onchange="sendMessage('erode_iterations', value)" id="erode_iterations">
+                                                    <div class="input-group-addon" style="width:10px">
+                                                        <i class="fa fa-qrcode"></i>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                    <div class="h4">Tracking Algorithm</div>
+                                    <i class="fa fa-long-arrow-down pull-left fa-3x"></i>
+                                        <div class="form-group form-group-sm">
+                                            <div class="input-group cvOption">
+                                                <div class="input-group-addon" style="width:164px">Object Min Size
+                                                </div>
+                                                <input type="text" class="form-control" value="20" onchange="sendMessage('min_size', value)" id="min_size">
+                                                <div class="input-group-addon" style="width:10px">
+                                                    <i class="fa fa-qrcode"></i>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <p></p>
+                                        <div class="form-group form-group-sm">
+                                            <div class="input-group cvOption">
+                                                <div class="input-group-addon" style="width:164px">Object Max Size
+                                                </div>
+                                                <input type="text" class="form-control" value="1000" onchange="sendMessage('max_size', value)" id="max_size">
+                                                <div class="input-group-addon" style="width:10px">
+                                                    <i class="fa fa-qrcode"></i>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <p></p>
+                                        <div class="form-group form-group-sm pastarrow">
+                                            <div class="input-group cvOption">
+                                                <div class="input-group-addon" style="width:164px">Max Jump Distance
+                                                </div>
+                                                <input type="text" class="form-control" value="200" onchange="sendMessage('max_jump_dist', value)" id="max_jump_dist">
+                                                <div class="input-group-addon" style="width:10px">
+                                                    <i class="fa fa-qrcode"></i>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <p></p>
+                                        <div class="form-group form-group-sm pastarrow">
+                                            <div class="input-group cvOption">
+                                                <div class="input-group-addon" style="width:164px">Initial Confidence
+                                                </div>
+                                                <input type="text" class="form-control" value="1" onchange="sendMessage('initial_confidence', value)" id="initial_confidence">
+                                                <div class="input-group-addon" style="width:10px">
+                                                    <i class="fa fa-qrcode"></i>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <p></p>
+                                        <div class="form-group form-group-sm pastarrow">
+                                            <div class="input-group cvOption">
+                                                <div class="input-group-addon" style="width:164px">Confidence Increase
+                                                </div>
+                                                <input type="text" class="form-control" value="1" onchange="sendMessage('confidence_increase', value)" id="confidence_increase">
+                                                <div class="input-group-addon" style="width:10px">
+                                                    <i class="fa fa-qrcode"></i>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <p></p>
+                                        <div class="form-group form-group-sm pastarrow">
+                                            <div class="input-group cvOption">
+                                                <div class="input-group-addon" style="width:164px">Confidence Decrease
+                                                </div>
+                                                <input type="text" class="form-control" value="1" onchange="sendMessage('confidence_reduction', value)" id="confidence_reduction">
+                                                <div class="input-group-addon" style="width:10px">
+                                                    <i class="fa fa-qrcode"></i>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <p></p>
+                                        <div class="form-group form-group-sm pastarrow">
+                                            <div class="input-group cvOption">
+                                                <div class="input-group-addon" style="width:164px">Confidence Threshold
+                                                </div>
+                                                <input type="text" class="form-control" value="-100" onchange="sendMessage('confidence_threshold', value)" id="confidence_threshold">
+                                                <div class="input-group-addon" style="width:10px">
+                                                    <i class="fa fa-qrcode"></i>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <p></p>
+                                        <div class="form-group form-group-sm pastarrow">
+                                            <div class="input-group cvOption">
+                                                <div class="input-group-addon" style="width:164px">Min Confidence
+                                                </div>
+                                                <input type="text" class="form-control" value="-100" onchange="sendMessage('min_confidence', value)" id="min_confidence">
+                                                <div class="input-group-addon" style="width:10px">
+                                                    <i class="fa fa-qrcode"></i>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <p></p>
+                                        <div class="form-group form-group-sm pastarrow">
+                                            <div class="input-group cvOption">
+                                                <div class="input-group-addon" style="width:164px">Max Confidence
+                                                </div>
+                                                <input type="text" class="form-control" value="100" onchange="sendMessage('max_confidence', value)" id="max_confidence">
+                                                <div class="input-group-addon" style="width:10px">
+                                                    <i class="fa fa-qrcode"></i>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <hr>
+                                        <div class="col-md-12">
+                                            <div style="padding-bottom:10px; padding-top:10px;">
+                                                <span class="h3">
+                                                    <i class="fa fa-floppy-o"></i>
+                                                    <span>Saved Settings</span>
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div style="float:right">
+                                            <div class="form-group">
+                                                <label for="settings_name">Preset Name:</label>
+                                                <input type="text" class="form-control" id="settings_name" style="text-align:left">
+                                                <button class="btn btn-default" type="submit">
+                                                    <span>Save</span>
+                                                    <i class="fa fa-cloud-download fa-lg"></i>
+                                                </button>
+                                            </div>
+                                            <p></p>
+                                            <div class="form-group">
+                                                <label for="load_settings">Open Preset:</label>
+                                                <!-- <input type="text" class="form-control" style="text-align:left"> -->
+                                                <select id="load_settings" class="form-control"></select>
+                                                <button class="btn btn-default" onclick="loadSettings('load_settings')">
+                                                    <span>Open</span>
+                                                    <i class="fa fa-cloud-upload fa-lg"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                </div>
+            </div>
+        <!-- </div> -->
+        <!-- <div class="col-md-2"> -->
+            <!-- right -->
+        <!-- </div> -->
+    </div>
+    <script type="text/javascript" src="underscore.js"></script>
+    <script type="text/javascript" src="moment.min.js"></script>
+    <script type="text/javascript">
+        // Global Variables
+        var canvas = document.getElementById('videoCanvas');
+        var ctx = canvas.getContext('2d');
+        var ptserver = new ReconnectingWebSocket( 'ws://ptserver.local:8888/browser/0', null, {debug: false, maxReconnectInterval: 1000});
+        // var ptserver = new ReconnectingWebSocket( 'ws://127.0.0.1:8888/browser/0', null, {debug: false, maxReconnectInterval: 1000});
+        // var ptserver = new ReconnectingWebSocket( 'ws://192.168.111.76:8888/browser/0', null, {debug: false, maxReconnectInterval: 1000});
+        // var ptserver = new ReconnectingWebSocket( 'ws://172.16.6.2:8888/browser/0', null, {debug: false, maxReconnectInterval: 1000});
+        var zones = [];
+        var blue_points = 744;
+        var red_points = 744;
+        var global_latency = 0;
+        var crossfade = 75;
+        var websocket_open = false;
+        // canvas.width = window.innerWidth;
+        // canvas.height = window.innerHeight;
+
+
+        var fullscreen_button = document.getElementById('fullscreen-button');
+        var main_pane = document.getElementById('main-pane');
+        fullscreen_button.addEventListener('click', function(){
+            main_pane.webkitRequestFullscreen();
+            // console.log(document.webkitIsFullScreen);
+        });
+
+        var onopen = function() {
+            websocket_open = true;
+            console.log("opened WebSocket");
+
+            // sendMessage("stream1", "final");
+            // sendMessage("stream2", "original");
+            // sendMessage("stream1quality", 25);
+            // sendMessage("stream2quality", 75);
+        }
+
+        var onclose = function() {
+            console.log("WebSocket closed");
+        }
+
+        ptserver.onopen = onopen;
+        ptserver.onclose = onclose;
+
+        function saveSettings() {
+            console.log(document.webkitFullscreenEnabled);
+            var settings = document.getElementById('settings');
+            var settings_obj = {};
+            for (var i = settings.elements.length - 1; i >= 0; i--) {
+                var id = settings.elements[i].id;
+                var value = settings.elements[i].value;
+                settings_obj[id] = value
+            };
+            ptserver.send(JSON.stringify(settings_obj));
+            return false;
+        }
+        ptserver.onmessage = function( event ) {
+            var json_data = tryParseJSON(event.data);
+            if (! json_data) {
+                // Not
+                data = event.data;
+                console.log("New message: " + data);
+            }
+
+            if (json_data.hasOwnProperty('settings')) {
+                loadSettingsOptions(json_data['settings']);
+            };
+
+            data = json_data;
+            var now = _.now();
+            var then = data.time;
+            latency = now - (then * 1000);
+            // if (latency > 200) {
+            //     // console.log("dropped frame");
+            //     return;
+            // }
+            // ctx.clearRect(0, 0, canvas.width, canvas.height);
+            stream2 = new Image();
+            stream2.metadata = {};
+            stream2.metadata.time = data.time;
+            stream2.metadata.latency = latency;
+            stream2.metadata.frame_id = data.frame_id;
+            stream2.metadata.frame_width = data.frame_width;
+            stream2.metadata.frame_height = data.frame_height;
+            stream2.metadata.zone_id = data.zone_id;
+            stream2.metadata.zone_x = data.zone_x;
+            stream2.metadata.zone_y = data.zone_y;
+            stream2.metadata.players = data.players;
+            stream2.metadata.translate = translateFrame(stream2.metadata.zone_x, stream2.metadata.zone_y);
+            stream1 = new Image();
+            stream1.metadata = {};
+            stream1.metadata.time = data.time;
+            stream1.metadata.latency = latency;
+            stream1.metadata.frame_id = data.frame_id;
+            stream1.metadata.frame_width = data.frame_width;
+            stream1.metadata.frame_height = data.frame_height;
+            stream1.metadata.zone_id = data.zone_id;
+            stream1.metadata.zone_x = data.zone_x;
+            stream1.metadata.zone_y = data.zone_y;
+            stream1.metadata.players = data.players;
+            stream1.metadata.translate = translateFrame(stream1.metadata.zone_x, stream1.metadata.zone_y);
+            updateZoneList(stream1); // must be first
+            stream1.onload = function () {
+                ctx.save();
+                ctx.globalAlpha = (100 - crossfade) / 100;
+                drawFrame(this);
+                ctx.restore()
+                // drawZoneId(stream1);
+                drawLatency(stream1);
+                // drawPoints();
+                // drawHill();
+                drawPlayers(stream1);
+                drawNullZones();
+                // drawDeadZones();
+                // repoDeadZones(); // not yet implemented (resize smaller if neccessary)
+            };
+            // DRAW FRAME
+            // console.log(data.stream1);
+            if (data.stream1 != null) {
+                stream1.src = data.stream1;
+            }
+            stream2.onload = function () {
+                ctx.save();
+                ctx.globalAlpha = crossfade / 100;
+                drawFrame(this);
+                ctx.restore()
+                drawPlayers(stream2);
+                // drawZoneId(stream1);
+                drawLatency(stream1);
+                // drawPoints();
+                // drawHill();
+
+            };
+            // DRAW FRAME
+            if (data.stream2 != null) {
+                stream2.src = data.stream2;
+            }
+        }
+
+        function tryParseJSON (jsonString){
+            try {
+                var o = JSON.parse(jsonString);
+
+                // Handle non-exception-throwing cases:
+                // Neither JSON.parse(false) or JSON.parse(1234) throw errors, hence the type-checking,
+                // but... JSON.parse(null) returns 'null', and typeof null === "object",
+                // so we must check for that, too.
+                if (o && typeof o === "object" && o !== null) {
+                    return o;
+                }
+            }
+            catch (e) { }
+
+            return false;
+        };
+
+        function crossfadeUpdate(value) {
+            crossfade = value;
+        }
+
+        function sendMessage(key, value) {
+            var message = {};
+            message[key] = value;
+            ptserver.send(JSON.stringify(message));
+        }
+
+        function loadSettingsOptions (settings) {
+            var select = document.getElementById("load_settings");
+            // Populate options
+            for (var i = settings.length - 1; i >= 0; i--) {
+                var option = document.createElement('option');
+                option.text = settings[i]['settings_name'];
+                option.data = settings[i];
+                select.add(option);
+            };
+
+            // Load "fav" settings if possible
+            for (var i = settings.length - 1; i >= 0; i--) {
+                if (settings[i]['settings_name'] == "fav") {
+                    // loadSettings("fav");
+                    console.log("Loaded fav settings :)");
+                }
+            };
+        }
+
+        function loadSettings (settings_preset_name) {
+            var settings_options = document.getElementById(settings_preset_name);
+            var settings = settings_options[settings_options.selectedIndex].data;
+            for (setting in settings) {
+                var setting_input_element = document.getElementById(setting);
+                if (!setting_input_element){
+                    continue;
+                }
+                setting_input_element.value = settings[setting];
+                sendMessage(setting, settings[setting]);
+            }
+        }
+
+        function updateZoneList (frame) {
+            var zone_exists = _.findWhere(zones, {id: frame.metadata.zone_id});
+            if (zone_exists){
+                zone_exists.time = frame.metadata.time;
+                zone_exists.dead = false;
+                return;
+            }
+            new_zone = {
+                id: frame.metadata.zone_id,
+                time: frame.metadata.time,
+                x: frame.metadata.zone_x,
+                y: frame.metadata.zone_y,
+                dead: false
+            };
+            zones.push(new_zone);
+        }
+
+        function drawNullZones(){
+            var max_x = _.max(zones, function(zone){ return zone.x; }).x;
+            var max_y = _.max(zones, function(zone){ return zone.y; }).y;
+            var max_zone_dimension = Math.max(max_x, max_x);
+            for (var x = 0; x <= max_zone_dimension; x++) {
+              for (var y = 0; y <= max_zone_dimension; y++) {
+                var zone_exists = _.findWhere(zones, {x: x, y: y});
+                if (!zone_exists) {
+                    drawNullZone(x,y);
+                }
+              }
+            }
+        }
+
+        function drawNullZone (x, y) {
+            var translate = translateFrame(x, y);
+            var x = translate.x_offset;
+            var y = translate.y_offset;
+            var width = translate.width;
+            var height = translate.height;
+            var centerX = x + (width / 2);
+            var centerY = y + (height / 2);
+
+            // Draw black box
+            ctx.fillStyle = 'black';
+            ctx.fillRect(x, y, width, height);
+
+            // // Draw icon
+            ctx.textAlign = "center";
+            ctx.textBaseline="middle";
+            ctx.fillStyle = "white";
+            ctx.font  = '70px FontAwesome';
+            // List of font-awesome CharCodes
+            // http://astronautweb.co/snippet/font-awesome/
+            ctx.fillText("\uf05c", centerX, centerY - 20);
+            ctx.font = "18px Arial";
+            ctx.fillText("No stream available", centerX, centerY + 40);
+        }
+
+        function drawDeadZones () {
+            var now = moment().unix();
+            var dead_zones = _.filter(zones, function(zone){ return now > zone.time + 2; });
+            for (var i = 0; i < dead_zones.length; i++) {
+                if (dead_zones[i].dead) {
+                    return;
+                }
+                dead_zones[i].dead = true;
+                var dead_zone = dead_zones[i];
+                var translate = translateFrame(dead_zone.x, dead_zone.y);
+                var x = translate.x_offset;
+                var y = translate.y_offset;
+                var width = translate.width;
+                var height = translate.height;
+                var centerX = x + (width / 2);
+                var centerY = y + (height / 2);
+
+                // Write "Connection Lost!" message
+                ctx.textAlign = "center";
+                ctx.textBaseline="middle";
+                ctx.fillStyle = "white";
+                ctx.font = "18px Arial";
+                ctx.fillText("Connection Lost", centerX, centerY + 45);
+                ctx.font  = '67px FontAwesome';
+                ctx.fillText("\uf00d", centerX, centerY - 8 );
+            };
+        }
+
+        function drawFrame (frame) {
+            var x = frame.metadata.translate.x_offset;
+            var y = frame.metadata.translate.y_offset;
+            var width = frame.metadata.translate.width;
+            var height = frame.metadata.translate.height;
+            ctx.drawImage(frame, x, y, width, height);
+        }
+
+        function drawZoneId (frame) {
+            var centerX = frame.metadata.translate.x_offset + frame.metadata.translate.width - 20;
+            var centerY = frame.metadata.translate.y_offset + 20;
+            ctx.fillStyle = "white";
+            ctx.font = "10px Arial";
+            ctx.fillText(frame.metadata.zone_id, centerX, centerY);
+        }
+
+        function drawLatency (frame) {
+            if (parseInt(frame.metadata.frame_id) % 4 == 0) {
+                global_latency = frame.metadata.latency.toPrecision(3);
+            }
+            var y = 20;
+            var x = canvas.width-55;
+            ctx.fillStyle = "white";
+            ctx.font = "15px Arial";
+            ctx.fillText(global_latency+"ms", x, y);
+        }
+
+        function translateFrame (zone_x, zone_y) {
+            /**
+             * Scales and translates locations in a zone to fit in a collaged
+             * scene.
+             * @param {Number} zone_x
+             * @param {Number} zone_y
+             * @return {obeject} translate = {
+             *     x_offset: offset from true 0
+             *     y_offset: offset from true 0
+             *     width: of zone
+             *     height: of zone
+             *     scale: ratio to full canvas
+             * }
+             */
+            var x, y, width, height;
+            var max_x = _.max(zones, function(zone){ return zone.x; }).x;
+            var max_y = _.max(zones, function(zone){ return zone.y; }).y;
+            var max_zone_dimension = Math.max(max_x, max_x);
+            var scale = max_zone_dimension + 1;
+            width = 1920 / scale;
+            height = 1080 / scale;
+            x = zone_x * width;
+            y = zone_y * height;
+            var translate = {
+                scale: scale,
+                x_offset: x,
+                y_offset: y,
+                width: width,
+                height: height
+            };
+            return translate;
+        }
+
+        function drawPlayers (frame) {
+            _.each(frame.metadata.players, function (player) {
+                var centerX = (player.loc[0] / frame.metadata.translate.scale) + frame.metadata.translate.x_offset;
+                var centerY = (player.loc[1] / frame.metadata.translate.scale) + frame.metadata.translate.y_offset;
+
+                // console.log("\nframe.metadata.translate.scale: \t"+ frame.metadata.translate.scale);
+                // console.log("x_offset, y_offset: \t\t\t\t"+ frame.metadata.translate.x_offset + "," + frame.metadata.translate.y_offset);
+                // console.log("x, y: \t\t\t\t\t\t\t\t"+ player.loc[0] + "," + player.loc[1] );
+                // console.log("centerX, centerY: \t\t\t\t\t"+ centerX + "," + centerY);
+
+                // Write player name
+                ctx.fillStyle = "white";
+                ctx.font =  "14px Arial";
+                ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
+                ctx.fillText(player.id.substring(0,2), centerX-4, centerY + 20);
+
+                // Icon
+                ctx.fillStyle = "rgba(255, 255, 255, 1)";
+                ctx.font  = '20px FontAwesome';
+                ctx.fillText("\uf1db", centerX-6, centerY+8);
+                // Draw player face icons
+                // if (frame.metadata.frame_id % 100 < 25) {
+                //     // sad face
+                //     ctx.fillText("\uf11a", centerX, centerY);
+                // }
+                // else if (frame.metadata.frame_id % 100 < 50) {
+                //     // meh face
+                //     ctx.fillText("\uf119", centerX, centerY);
+                // }
+                // else {
+                //     // happy face
+                //     ctx.fillText("\uf118", centerX, centerY);
+                // }
+            });
+        }
+
+        function drawPoints () {
+            // inspiration
+            // https://www.facebook.com/BattlegroundsHQ/photos/pb.512596162149121.-2207520000.1427084164./773638926044842/?type=3&theater
+            var r1 = Math.floor((Math.random() * 100) + 1);
+            var r2 = Math.floor((Math.random() * 100) + 1);
+            var width = canvas.width;
+            var height = canvas.height;
+
+            if (r1 > 95) {
+                blue_points = blue_points + r1 -90;
+            }
+            if (r2 > 95) {
+                red_points = red_points + r2 - 90;
+            }
+
+            ctx.textBaseline="bottom";
+            ctx.fillStyle = "white";
+            ctx.font = "28px Arial";
+            ctx.textAlign = "left";
+            ctx.fillText("Blue Team: " + blue_points, 5, height - 5);
+            ctx.textAlign = "right";
+            ctx.fillText("Red Team: " + red_points, width -5 , height - 5);
+        }
+
+        function drawHill(){
+            ctx.textAlign = "center";
+            ctx.textBaseline="middle";
+            ctx.font  = '50px FontAwesome';
+            ctx.fillStyle='white';
+            ctx.fillText("\uf0c8", canvas.width/2, canvas.height-30);
+
+            if (blue_points > red_points) {
+                var mygradient = 'blue';
+            }
+            else{
+                var mygradient = 'red';
+            }
+            ctx.fillStyle=mygradient;
+            ctx.font  = '30px FontAwesome';
+            ctx.fillText("\uf024", canvas.width/2, canvas.height-30);
+        }
+
+    // hotkey for hop-back
+    $(document).keydown(function(e){
+        // console.log(e.keyCode);
+        // if (e.keyCode == 49) { // '1' key
+        //     sendMessage('stream2', 'original');
+        // }
+        // if (e.keyCode == 50) { // '2' key
+        //     sendMessage('stream2', 'bg_sub');
+        // }
+        // if (e.keyCode == 51) { // '3' key
+        //     sendMessage('stream2', 'final');
+        // }
+    });
+
+    </script>
+</body>
+</html>
